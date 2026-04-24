@@ -1,0 +1,218 @@
+
+--- Test Case 1: ["A->B","A->B","A->B","A->B"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {
+        "A": {
+          "B": {}
+        }
+      },
+      "depth": 2
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [
+    "A->B"
+  ],
+  "summary": {
+    "total_trees": 1,
+    "total_cycles": 0,
+    "largest_tree_root": "A"
+  }
+}
+
+--- Test Case 2: ["A->D","B->D","C->D"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {
+        "A": {
+          "D": {}
+        }
+      },
+      "depth": 2
+    },
+    {
+      "root": "B",
+      "tree": {
+        "B": {}
+      },
+      "depth": 1
+    },
+    {
+      "root": "C",
+      "tree": {
+        "C": {}
+      },
+      "depth": 1
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 3,
+    "total_cycles": 0,
+    "largest_tree_root": "A"
+  }
+}
+
+--- Test Case 3: ["A->B","B->C","C->A","D->E"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {},
+      "has_cycle": true
+    },
+    {
+      "root": "D",
+      "tree": {
+        "D": {
+          "E": {}
+        }
+      },
+      "depth": 2
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 1,
+    "total_cycles": 1,
+    "largest_tree_root": "D"
+  }
+}
+
+--- Test Case 4: ["A->B","B->C","C->A","C->D"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {},
+      "has_cycle": true
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 0,
+    "total_cycles": 1,
+    "largest_tree_root": ""
+  }
+}
+
+--- Test Case 5: ["A->B","A->C","B->D","C->E","E->F"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {
+        "A": {
+          "B": {
+            "D": {}
+          },
+          "C": {
+            "E": {
+              "F": {}
+            }
+          }
+        }
+      },
+      "depth": 4
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 1,
+    "total_cycles": 0,
+    "largest_tree_root": "A"
+  }
+}
+
+--- Test Case 6: ["B->C","A->C"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {
+        "A": {}
+      },
+      "depth": 1
+    },
+    {
+      "root": "B",
+      "tree": {
+        "B": {
+          "C": {}
+        }
+      },
+      "depth": 2
+    }
+  ],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 2,
+    "total_cycles": 0,
+    "largest_tree_root": "B"
+  }
+}
+
+--- Test Case 7: ["A->B","hello","X->Y","Y->X"] ---
+{
+  "hierarchies": [
+    {
+      "root": "A",
+      "tree": {
+        "A": {
+          "B": {}
+        }
+      },
+      "depth": 2
+    },
+    {
+      "root": "X",
+      "tree": {},
+      "has_cycle": true
+    }
+  ],
+  "invalid_entries": [
+    "hello"
+  ],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 1,
+    "total_cycles": 1,
+    "largest_tree_root": "A"
+  }
+}
+
+--- Test Case 8: [] ---
+{
+  "hierarchies": [],
+  "invalid_entries": [],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 0,
+    "total_cycles": 0,
+    "largest_tree_root": ""
+  }
+}
+
+--- Test Case 9: ["   "] ---
+{
+  "hierarchies": [],
+  "invalid_entries": [
+    "   "
+  ],
+  "duplicate_edges": [],
+  "summary": {
+    "total_trees": 0,
+    "total_cycles": 0,
+    "largest_tree_root": ""
+  }
+}

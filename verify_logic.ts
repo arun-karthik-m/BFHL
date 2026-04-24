@@ -1,12 +1,4 @@
-import express from "express";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// Standalone logic verification script
 interface Hierarchy {
   root: string;
   tree: Record<string, any>;
@@ -14,16 +6,7 @@ interface Hierarchy {
   has_cycle?: boolean;
 }
 
-async function startServer() {
-  const app = express();
-  const PORT = process.env.PORT || 3000;
-
-  app.use(cors());
-  app.use(express.json());
-
-  app.post("/bfhl", (req, res) => {
-    const data: any[] = Array.isArray(req.body.data) ? req.body.data : [];
-    
+function processBFHL(data: any[]) {
     const invalid_entries: string[] = [];
     const duplicate_edges: string[] = [];
     const reported_duplicates = new Set<string>();
@@ -33,7 +16,6 @@ async function startServer() {
     const child_to_parent = new Map<string, string>();
     const adj = new Map<string, string[]>();
     
-    // 1. Process Input and Build Graph
     for (const item of data) {
       if (typeof item !== "string") {
         invalid_entries.push(String(item));
@@ -46,7 +28,6 @@ async function startServer() {
         continue;
       }
       
-      // Strict regex for validation: Single [A-Z] -> [A-Z]
       const match = trimmed.match(/^([A-Z])->([A-Z])$/);
       if (!match) {
         invalid_entries.push(item);
@@ -54,7 +35,7 @@ async function startServer() {
       }
       
       const [, from, to] = match;
-      if (from === to) { // Self-loop
+      if (from === to) {
         invalid_entries.push(item);
         continue;
       }
@@ -69,18 +50,12 @@ async function startServer() {
       }
       seen_edges.add(edge_str);
       
-      // Multi-parent rule: ignore future parents
       if (child_to_parent.has(to)) {
-        // Just skip node addition to graph, don't mark as duplicate
-        // BUT we should still mark the nodes as existing?
-        // Spec says "Build only valid edges". "Ignore ALL future parents".
-        // This means the edge is invalid, but the nodes might still be part of the set.
         all_nodes.add(from);
         all_nodes.add(to);
         continue;
       }
       
-      // Add to graph
       all_nodes.add(from);
       all_nodes.add(to);
       child_to_parent.set(to, from);
@@ -89,12 +64,10 @@ async function startServer() {
       adj.get(from)!.push(to);
     }
     
-    // Ensure all nodes are in adj list even if they have no outgoing edges
     for (const node of all_nodes) {
       if (!adj.has(node)) adj.set(node, []);
     }
     
-    // 2. Component Detection (using Undirected Graph)
     const undir_adj = new Map<string, string[]>();
     for (const node of all_nodes) {
       undir_adj.set(node, []);
@@ -106,14 +79,11 @@ async function startServer() {
     
     const visited_global = new Set<string>();
     const hierarchies: Hierarchy[] = [];
-    
-    // Sort nodes lexicographically for deterministic processing
     const sorted_nodes = Array.from(all_nodes).sort();
     
     for (const start_node of sorted_nodes) {
       if (visited_global.has(start_node)) continue;
       
-      // BFS/DFS to find all nodes in this undirected component
       const component_nodes: string[] = [];
       const queue = [start_node];
       visited_global.add(start_node);
@@ -130,26 +100,14 @@ async function startServer() {
         }
       }
       
-      // 3. Hierarchy Logic for the component
-      // Find nodes with no parent in this component
       const component_roots = component_nodes.filter(n => !child_to_parent.has(n));
-      component_roots.sort(); // Lexicographical just in case, though it should be at most 1
+      component_roots.sort();
       
       if (component_roots.length === 0) {
-        // Component is a cycle (every node has exactly one parent)
         const root = component_nodes.sort()[0];
-        hierarchies.push({
-          root,
-          tree: {},
-          has_cycle: true
-        });
+        hierarchies.push({ root, tree: {}, has_cycle: true });
       } else {
-        // Component has at least one root. In our in-degree <= 1 graph, 
-        // a connected component can have at most one root if it has no cycles.
-        // Actually, if it's undirected connected, it MUST have exactly one root.
         const root = component_roots[0];
-        
-        // Build nested tree structure and calculate depth
         let max_depth = 0;
         
         const buildNestedTree = (node: string, depth: number): Record<string, any> => {
@@ -166,42 +124,28 @@ async function startServer() {
         const final_hierarchy_tree: Record<string, any> = {};
         final_hierarchy_tree[root] = tree_content;
         
-        hierarchies.push({
-          root,
-          tree: final_hierarchy_tree,
-          depth: max_depth
-        });
+        hierarchies.push({ root, tree: final_hierarchy_tree, depth: max_depth });
       }
     }
     
-    // Sort hierarchies by root name
     hierarchies.sort((a, b) => a.root.localeCompare(b.root));
-    
-    // 4. Summary
     const trees = hierarchies.filter(h => !h.has_cycle);
     const cycles = hierarchies.filter(h => h.has_cycle);
     
     let largest_tree_root = "";
     if (trees.length > 0) {
-      // Find based on depth, then lexicographical
       let best = trees[0];
       for (let i = 1; i < trees.length; i++) {
-        const curr = trees[i];
-        if ((curr.depth || 0) > (best.depth || 0)) {
-          best = curr;
-        } else if ((curr.depth || 0) === (best.depth || 0)) {
-          if (curr.root < best.root) {
-            best = curr;
-          }
+        if ((trees[i].depth || 0) > (best.depth || 0)) {
+          best = trees[i];
+        } else if ((trees[i].depth || 0) === (best.depth || 0)) {
+          if (trees[i].root < best.root) best = trees[i];
         }
       }
       largest_tree_root = best.root;
     }
     
-    res.json({
-      user_id: "arun_karthik_m_24042026", // Updated with user info placeholder
-      email_id: "arunkarthik.m@college.edu",
-      college_roll_number: "21CS9999",
+    return {
       hierarchies,
       invalid_entries,
       duplicate_edges,
@@ -210,27 +154,22 @@ async function startServer() {
         total_cycles: cycles.length,
         largest_tree_root
       }
-    });
-  });
-
-  // Vite Development Server or Static Production Build
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+    };
 }
 
-startServer();
+const tests = [
+    ["A->B","A->B","A->B","A->B"],
+    ["A->D","B->D","C->D"],
+    ["A->B","B->C","C->A","D->E"],
+    ["A->B","B->C","C->A","C->D"],
+    ["A->B","A->C","B->D","C->E","E->F"],
+    ["B->C","A->C"],
+    ["A->B","hello","X->Y","Y->X"],
+    [],
+    ["   "]
+];
+
+tests.forEach((t, i) => {
+    console.log(`\n--- Test Case ${i+1}: ${JSON.stringify(t)} ---`);
+    console.log(JSON.stringify(processBFHL(t), null, 2));
+});
