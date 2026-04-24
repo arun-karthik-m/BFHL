@@ -1,0 +1,8 @@
+{
+  "name": "BFHL Hierarchy Visualizer",
+  "description": "A premium, full-stack visualizer for node hierarchies, trees, and cycles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "full_stack"
+  ]
+}
