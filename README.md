@@ -63,7 +63,23 @@ Processes an array of relationship strings and returns a structural analysis.
    npm start
    ```
 
-## Tech Stack
+## Deployment
 
-- **Backend**: Node.js, Express, TypeScript, TSX
-- **Optimization**: Linear-time Graph Theory Algorithms
+### Backend (Render / Railway)
+1. Push this repository to GitHub.
+2. In your provider (e.g., Render), create a new **Web Service**.
+3. Select your repo and use the following settings:
+   - **Environment**: Node
+   - **Build Command**: `npm install && npm run build`
+   - **Start Command**: `npm start`
+4. Set the environment variable `PORT` to `3000`.
+
+### Frontend (Vercel / Netlify)
+1. Create a new project from your GitHub repo.
+2. The frontend will be served by the backend in this unified build.
+3. Your **Hosted Frontend URL** and **Hosted API base URL** will likely be the same (the URL provided by your hosting service).
+
+## Submission Checklist
+- [ ] Hosted API URL (e.g., `https://your-app.render.com`)
+- [ ] Hosted Frontend URL (Same as above)
+- [ ] Public GitHub Repository URL

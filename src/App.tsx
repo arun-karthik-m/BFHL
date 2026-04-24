@@ -44,7 +44,7 @@ interface BFHLResponse {
   message?: string;
 }
 
-const DEFAULT_INPUT = "A->B\nB->C\nA->D\nF->G\nH->I\nI->H\nINVALID_X";
+const DEFAULT_INPUT = "A->B\nA->C\nB->D\nC->E\nE->F\nX->Y\nY->Z\nZ->X\nP->Q\nQ->R\nINVALID_TRY";
 
 export default function App() {
   const [input, setInput] = useState(DEFAULT_INPUT);
@@ -94,10 +94,10 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Hash className="w-4 h-4 text-neutral-800" />
-            <h1 className="text-sm font-medium tracking-tight text-neutral-800">BFHL Pipeline</h1>
+            <h1 className="text-sm font-semibold tracking-tight text-neutral-800">SRM Engineering Challenge</h1>
           </div>
           <div className="flex items-center gap-4 text-xs font-medium text-neutral-500">
-             <span>v2.0.0</span>
+             <span>BFHL v2.1</span>
              <div className="w-[1px] h-3 bg-neutral-300" />
              <div className="flex items-center gap-2 px-2 py-1 bg-neutral-100 rounded-full">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
@@ -107,7 +107,13 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      <main className="max-w-6xl mx-auto px-6 py-10">
+        <div className="mb-8 space-y-2">
+          <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 line-tight">Full Stack Hierarchy Analyzer</h2>
+          <p className="text-sm text-neutral-500 font-medium max-w-2xl">
+             Candidate: <span className="text-neutral-900 font-semibold">Arun Karthik M</span> • Roll: <span className="text-neutral-900 font-semibold">21CS9999</span>
+          </p>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
           <div className="lg:col-span-4 space-y-6">

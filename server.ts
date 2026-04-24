@@ -199,7 +199,7 @@ async function startServer() {
     }
     
     res.json({
-      user_id: "arun_karthik_m_24042026", // Updated with user info placeholder
+      user_id: "arunkarthikm_24042026",
       email_id: "arunkarthik.m@college.edu",
       college_roll_number: "21CS9999",
       hierarchies,
