@@ -3,44 +3,43 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback, ReactNode } from "react";
+import React, { useState } from "react";
 import { 
   Send, 
   Trash2, 
-  Plus, 
-  Info, 
-  ChevronRight, 
-  ChevronDown, 
-  TreePine, 
-  RefreshCcw, 
-  Code2, 
   Layout, 
-  AlertCircle,
-  Copy,
-  Check,
-  Hash
+  Code2, 
+  Copy, 
+  Check, 
+  Hash, 
+  RefreshCcw, 
+  AlertCircle, 
+  ChevronDown, 
+  ChevronRight, 
+  CornerDownRight 
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-interface TreeResult {
+interface Hierarchy {
   root: string;
-  nodes: string[];
-  depth: number;
-  structure: Record<string, string[]>;
+  tree: Record<string, any>;
+  depth?: number;
+  has_cycle?: true;
 }
 
 interface Summary {
   total_trees: number;
   total_cycles: number;
-  largest_tree_root: string;
+  largest_tree_root: string | null;
 }
 
 interface BFHLResponse {
-  is_success: boolean;
-  trees: TreeResult[];
-  cycles: { nodes: string[] }[];
+  user_id: string;
+  email_id: string;
+  college_roll_number: string;
+  hierarchies: Hierarchy[];
   invalid_entries: string[];
-  duplicates: string[];
+  duplicate_edges: string[];
   summary: Summary;
   message?: string;
 }
@@ -58,8 +57,9 @@ export default function App() {
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
+    setResponse(null);
     try {
-      const data = input.split("\n").map(s => s.trim()).filter(Boolean);
+      const data = input.split("\n");
       const res = await fetch("/bfhl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,10 +69,10 @@ export default function App() {
       if (res.ok) {
         setResponse(result);
       } else {
-        setError(result.message || "Something went wrong. Please check your connection.");
+        setError(result.message || "Failed to process data.");
       }
     } catch (err) {
-      setError("Failed to connect to the server. Ensure the backend is running.");
+      setError("Failed to connect to the server.");
     } finally {
       setLoading(false);
     }
@@ -85,110 +85,84 @@ export default function App() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const trees = response?.hierarchies.filter(h => !h.has_cycle) || [];
+  const cycles = response?.hierarchies.filter(h => h.has_cycle) || [];
+
   return (
-    <div className="min-h-screen bg-[#fafafa] text-zinc-900 font-sans selection:bg-zinc-200">
-      {/* Header */}
-      <header className="border-bottom border-zinc-200 sticky top-0 bg-white/80 backdrop-blur-md z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900 font-sans selection:bg-neutral-200">
+      <header className="border-b border-neutral-200/60 sticky top-0 bg-neutral-50/80 backdrop-blur-md z-50">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-zinc-900 rounded-lg flex items-center justify-center text-white">
-              <Hash className="w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-sm font-semibold tracking-tight">BFHL Visualizer</h1>
-              <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-medium">Pipeline v1.0.4</p>
-            </div>
+            <Hash className="w-4 h-4 text-neutral-800" />
+            <h1 className="text-sm font-medium tracking-tight text-neutral-800">BFHL Pipeline</h1>
           </div>
-          <div className="flex items-center gap-4">
-             <a href="https://github.com" target="_blank" className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors font-medium">Documentation</a>
-             <div className="w-[1px] h-4 bg-zinc-200" />
-             <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-100 rounded-md">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tight">Systems Operational</span>
+          <div className="flex items-center gap-4 text-xs font-medium text-neutral-500">
+             <span>v2.0.0</span>
+             <div className="w-[1px] h-3 bg-neutral-300" />
+             <div className="flex items-center gap-2 px-2 py-1 bg-neutral-100 rounded-full">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                <span className="text-[10px] text-neutral-600 uppercase tracking-wide">Operational</span>
              </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           
-          {/* Input Panel */}
-          <div className="lg:col-span-5 space-y-8">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Node Definitions</label>
-                <div className="flex items-center gap-2">
-                   <button 
-                    onClick={() => setInput("")}
-                    className="p-1 text-zinc-400 hover:text-zinc-900 transition-colors rounded hover:bg-zinc-100"
-                    title="Clear input"
-                   >
-                     <Trash2 className="w-4 h-4" />
-                   </button>
-                </div>
+          <div className="lg:col-span-4 space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest">Input Data</label>
+                <button 
+                  onClick={() => setInput("")}
+                  className="text-neutral-400 hover:text-neutral-900 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <div className="relative group">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Enter nodes like: A->B"
-                  spellCheck={false}
-                  className="w-full h-80 bg-white border border-zinc-200 rounded-xl p-5 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-900 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
-                />
-                <div className="absolute bottom-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[10px] text-zinc-400 font-medium">Press CMD+Enter to run</span>
-                </div>
-              </div>
-              <div className="flex items-start gap-2.5 px-1">
-                <Info className="w-3.5 h-3.5 text-zinc-400 mt-0.5" />
-                <p className="text-[11px] text-zinc-500 leading-normal">
-                  Format: <code className="text-zinc-900">PARENT{"->"}CHILD</code> (one per line). 
-                  Nodes must be uppercase alphabetical strings.
-                </p>
-              </div>
-              <button
-                onClick={handleSubmit}
-                disabled={loading || !input.trim()}
-                className="w-full h-11 bg-zinc-900 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm active:scale-[0.98]"
-              >
-                {loading ? (
-                  <RefreshCcw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Run Analysis</span>
-                  </>
-                )}
-              </button>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="A->B"
+                spellCheck={false}
+                className="w-full h-80 bg-white border border-neutral-200/80 rounded-xl p-5 font-mono text-[13px] leading-relaxed resize-none focus:outline-none focus:border-neutral-400 focus:ring-4 focus:ring-neutral-100 transition-all shadow-sm"
+              />
             </div>
+            
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !input.trim()}
+              className="w-full h-11 bg-neutral-900 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 disabled:opacity-50 transition-all shadow-sm active:scale-[0.98]"
+            >
+              {loading ? (
+                <RefreshCcw className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Run Analysis</span>
+                </>
+              )}
+            </button>
 
             {error && (
               <motion.div 
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-4 bg-red-50 border border-red-100 rounded-xl flex gap-3 items-start"
+                className="p-4 bg-red-50/50 border border-red-100 rounded-xl text-sm text-red-700 flex items-start gap-3"
               >
-                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-red-900">Analysis Failed</p>
-                  <p className="text-xs text-red-600 leading-relaxed">{error}</p>
-                </div>
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
               </motion.div>
             )}
           </div>
 
-          {/* Results Panel */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-8">
             {!response && !error && !loading && (
-              <div className="h-full min-h-[400px] border border-dashed border-zinc-200 rounded-2xl flex flex-col items-center justify-center text-zinc-400 px-12 text-center">
-                <div className="w-12 h-12 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
-                  <Layout className="w-6 h-6 text-zinc-200" />
-                </div>
-                <h3 className="text-sm font-medium text-zinc-900 mb-1">Ready for Analysis</h3>
-                <p className="text-xs leading-relaxed max-w-[240px]">
-                  Input your node strings on the left to visualize trees, hierarchies, and cycles.
-                </p>
+              <div className="h-full flex flex-col items-center justify-center text-neutral-400 min-h-[400px]">
+                <Layout className="w-8 h-8 mb-4 opacity-20" />
+                <p className="text-sm font-medium">Awaiting input data</p>
+                <p className="text-[11px] mt-2 max-w-[200px] text-center">Analyze hierarchical data using graph verification.</p>
               </div>
             )}
 
@@ -196,15 +170,14 @@ export default function App() {
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="space-y-8"
+                className="space-y-10"
               >
-                {/* Visual / JSON Toggle */}
-                <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
-                  <div className="flex bg-zinc-100 p-1 rounded-lg">
+                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-4">
+                  <div className="flex items-center gap-1 bg-neutral-100/80 p-1 rounded-lg">
                     <button
                       onClick={() => setViewMode("visual")}
-                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all flex items-center gap-2 ${
-                        viewMode === "visual" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
+                      className={`px-4 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-2 ${
+                        viewMode === "visual" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"
                       }`}
                     >
                       <Layout className="w-3.5 h-3.5" />
@@ -212,90 +185,69 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => setViewMode("json")}
-                      className={`px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all flex items-center gap-2 ${
-                        viewMode === "json" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700"
+                      className={`px-4 py-1.5 text-[11px] font-medium rounded-md transition-all flex items-center gap-2 ${
+                        viewMode === "json" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"
                       }`}
                     >
                       <Code2 className="w-3.5 h-3.5" />
-                      JSON Output
+                      Raw JSON
                     </button>
                   </div>
                   <button 
                     onClick={copyToClipboard}
-                    className="flex items-center gap-2 px-3 py-1.5 text-zinc-500 hover:text-zinc-900 transition-colors text-[11px] font-medium"
+                    className="flex items-center gap-2 px-3 py-1.5 text-neutral-500 hover:text-neutral-900 transition-colors text-xs font-medium"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? "Copied" : "Copy JSON"}
+                    {copied ? "Copied to clipboard" : "Copy output"}
                   </button>
                 </div>
 
                 {viewMode === "visual" ? (
                   <div className="space-y-10">
-                    {/* Summary Cards */}
                     <div className="grid grid-cols-3 gap-4">
-                      <SummaryCard label="Total Trees" value={response.summary.total_trees} icon={<TreePine className="w-3.5 h-3.5" />} />
-                      <SummaryCard label="Detected Cycles" value={response.summary.total_cycles} icon={<RefreshCcw className="w-3.5 h-3.5" />} />
-                      <SummaryCard label="Largest Tree" value={response.summary.largest_tree_root || "N/A"} icon={<ChevronRight className="w-3.5 h-3.5" />} color="text-zinc-900" />
+                      <SummaryCard label="Valid Trees" value={response.summary.total_trees} />
+                      <SummaryCard label="Detected Cycles" value={response.summary.total_cycles} />
+                      <SummaryCard label="Largest Root" value={response.summary.largest_tree_root || "—"} />
                     </div>
 
-                    {/* Valid Trees */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Valid Hierarchies</span>
-                        <div className="flex-1 h-[1px] bg-zinc-100" />
-                      </div>
+                    <div className="space-y-6">
+                      <h3 className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest pl-1">Hierarchies</h3>
                       <div className="space-y-4">
-                        {response.trees.length === 0 ? (
-                          <p className="text-xs text-zinc-400 italic py-4">No valid trees detected.</p>
+                        {trees.length === 0 ? (
+                          <p className="text-sm text-neutral-400 p-4 bg-white rounded-2xl border border-neutral-200/60 shadow-sm text-center italic">No valid trees generated.</p>
                         ) : (
-                          response.trees.map((tree, idx) => (
+                          trees.map((tree, idx) => (
                             <TreeVisual key={idx} tree={tree} />
                           ))
                         )}
                       </div>
                     </div>
 
-                    {/* Cycles & Issues */}
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Detected Inconsistencies</span>
-                        <div className="flex-1 h-[1px] bg-zinc-100" />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <IssueBlock 
-                          title="Cycles Found" 
-                          items={response.cycles.map(c => c.nodes.join(" ⇄ "))} 
-                          type="cycle"
-                        />
-                        <IssueBlock 
-                          title="Invalid Strings" 
-                          items={response.invalid_entries} 
-                          type="invalid"
-                        />
-                      </div>
-                      {response.duplicates.length > 0 && (
-                        <div className="p-3 bg-zinc-50 border border-zinc-100 rounded-lg">
-                           <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-2">Redundant Edges Cleaned</p>
-                           <div className="flex flex-wrap gap-2">
-                              {response.duplicates.map((d, i) => (
-                                <span key={i} className="text-[11px] text-zinc-500 bg-white border border-zinc-200 px-2 py-0.5 rounded-md">{d}</span>
-                              ))}
-                           </div>
+                    {(cycles.length > 0 || response.invalid_entries.length > 0 || response.duplicate_edges.length > 0) && (
+                      <div className="space-y-6">
+                        <h3 className="text-[11px] font-semibold text-neutral-400 uppercase tracking-widest pl-1">Diagnostics</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {cycles.length > 0 && (
+                            <IssueBlock title="Cyclic Groups" items={cycles.map(c => c.root + " (Smallest Edge)")} />
+                          )}
+                          {response.invalid_entries.length > 0 && (
+                            <IssueBlock title="Invalid Syntax" items={response.invalid_entries} />
+                          )}
                         </div>
-                      )}
-                    </div>
+                        {response.duplicate_edges.length > 0 && (
+                          <IssueBlock title="Redundant Edges Cleaned" items={response.duplicate_edges} />
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-6 bg-zinc-900 rounded-2xl shadow-2xl relative overflow-hidden group"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-6 bg-neutral-900 rounded-2xl shadow-xl overflow-x-auto"
                   >
-                    <div className="absolute top-0 right-0 p-4 opacity-50 text-white/10 group-hover:text-white/20 transition-colors pointer-events-none">
-                      <Code2 className="w-32 h-32" />
-                    </div>
-                    <pre className="text-[13px] font-mono text-zinc-100 leading-relaxed overflow-x-auto selection:bg-white/20 whitespace-pre-wrap">
-                      {JSON.stringify(response, null, 4)}
+                    <pre className="text-[13px] font-mono text-neutral-300 leading-relaxed">
+                      {JSON.stringify(response, null, 2)}
                     </pre>
                   </motion.div>
                 )}
@@ -304,60 +256,39 @@ export default function App() {
           </div>
         </div>
       </main>
-
-      <footer className="border-t border-zinc-100 py-12 mt-20">
-         <div className="max-w-5xl mx-auto px-6 flex flex-col items-center">
-            <div className="flex items-center gap-2 mb-4">
-               <Hash className="w-4 h-4 text-zinc-300" />
-               <span className="text-xs font-semibold text-zinc-400 tracking-tight">BFHL SYSTEMS</span>
-            </div>
-            <p className="text-[11px] text-zinc-400 max-w-[400px] text-center leading-relaxed">
-              Designed and built for peak performance. The BFHL Visualizer is a professional-grade diagnostic tool for graph data analysis and hierarchy resolution.
-            </p>
-         </div>
-      </footer>
     </div>
   );
 }
 
-function SummaryCard({ label, value, icon, color = "text-zinc-500" }: { label: string; value: string | number; icon: ReactNode; color?: string }) {
+function SummaryCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="p-4 bg-white border border-zinc-200 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.01)] hover:border-zinc-300 transition-colors">
-      <div className="flex items-center gap-2 mb-2 text-zinc-400">
-        {icon}
-        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
-      </div>
-      <div className={`text-xl font-semibold tracking-tight ${color}`}>
-        {value}
-      </div>
+    <div className="p-5 bg-white border border-neutral-200/80 rounded-2xl shadow-sm hover:border-neutral-300 transition-colors">
+      <div className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest mb-1.5">{label}</div>
+      <div className="text-2xl font-semibold text-neutral-900 tracking-tight">{value}</div>
     </div>
   );
 }
 
-const TreeVisual: React.FC<{ tree: TreeResult }> = ({ tree }) => {
+const TreeVisual: React.FC<{ tree: Hierarchy }> = ({ tree }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+    <div className="bg-white border border-neutral-200/80 rounded-2xl shadow-sm overflow-hidden transition-all hover:border-neutral-300">
       <div 
-        className="p-4 flex items-center justify-between cursor-pointer select-none hover:bg-zinc-50 transition-colors"
+        className="p-4 flex items-center justify-between cursor-pointer select-none hover:bg-neutral-50/50 transition-colors"
         onClick={() => setCollapsed(!collapsed)}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center text-white font-bold text-xs ring-4 ring-zinc-50">
+        <div className="flex items-center gap-4 pl-1">
+          <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 font-semibold text-sm">
             {tree.root}
           </div>
-          <div>
-            <h4 className="text-xs font-semibold text-zinc-900">Tree Hierarchy</h4>
-            <p className="text-[10px] text-zinc-400 flex items-center gap-2">
-               <span>Depth: {tree.depth}</span>
-               <span className="w-1 h-1 bg-zinc-200 rounded-full" />
-               <span>Nodes: {tree.nodes.length}</span>
-            </p>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[13px] font-semibold text-neutral-900 tracking-tight">Tree Group</span>
+            <span className="text-[11px] font-medium text-neutral-400">Depth: {tree.depth}</span>
           </div>
         </div>
-        <div className={`p-1 text-zinc-400 transition-transform ${collapsed ? "" : "rotate-180"}`}>
-          <ChevronDown className="w-4 h-4" />
+        <div className="pr-2 text-neutral-400">
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </div>
       
@@ -367,14 +298,10 @@ const TreeVisual: React.FC<{ tree: TreeResult }> = ({ tree }) => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-zinc-100"
+            className="overflow-hidden border-t border-neutral-100/60"
           >
-            <div className="p-6 bg-zinc-50/30">
-              <TreeNode 
-                node={tree.root} 
-                structure={tree.structure} 
-                isRoot={true} 
-              />
+            <div className="p-6 pl-8 bg-neutral-50/40">
+              <TreeNode node={tree.root} tree={tree.tree} isRoot />
             </div>
           </motion.div>
         )}
@@ -383,51 +310,44 @@ const TreeVisual: React.FC<{ tree: TreeResult }> = ({ tree }) => {
   );
 }
 
-const TreeNode: React.FC<{ node: string; structure: Record<string, string[]>; depth?: number; isRoot?: boolean }> = ({ node, structure, depth = 0, isRoot = false }) => {
-  const children = structure[node] || [];
+const TreeNode: React.FC<{ node: string; tree: Record<string, any>; isRoot?: boolean }> = ({ node, tree, isRoot }) => {
+  const children = Object.keys(tree);
 
   return (
-    <div className={`${isRoot ? "" : "ml-6 mt-3 pl-4 border-l border-zinc-200"}`}>
-      <div className="flex items-center gap-3 group">
-        <div className={`
-          flex items-center justify-center font-bold text-[11px] rounded-md transition-all
-          ${isRoot ? "w-6 h-6 bg-zinc-900 text-white" : "w-5 h-5 bg-white border border-zinc-300 text-zinc-700 shadow-sm group-hover:border-zinc-900"}
-        `}>
+    <div className={`${isRoot ? "" : "ml-4 mt-3"} relative`}>
+      {!isRoot && (
+        <div className="absolute -left-4 top-[9px] text-neutral-300">
+          <CornerDownRight className="w-3.5 h-3.5" />
+        </div>
+      )}
+      
+      <div className="flex items-center gap-2 relative z-10 w-fit">
+        <div className="w-6 h-6 flex items-center justify-center font-medium text-[13px] bg-white border border-neutral-200/80 rounded text-neutral-700 shadow-sm leading-none">
           {node}
         </div>
-        {children.length > 0 && (
-          <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-tight group-hover:text-zinc-500 transition-colors">
-            {children.length} Children
-          </span>
-        )}
       </div>
-      <div>
-        {children.map((child, i) => (
-          <TreeNode key={`${child}-${i}`} node={child} structure={structure} depth={depth + 1} />
-        ))}
-      </div>
+      
+      {children.length > 0 && (
+        <div className="ml-2.5 border-l border-neutral-200/80">
+          {children.map(child => (
+            <TreeNode key={child} node={child} tree={tree[child]} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function IssueBlock({ title, items, type }: { title: string; items: string[]; type: "cycle" | "invalid" }) {
+function IssueBlock({ title, items }: { title: string; items: string[] }) {
   return (
-    <div className={`p-4 rounded-2xl border ${items.length > 0 ? "bg-white border-zinc-200" : "bg-zinc-50 border-transparent opacity-50"}`}>
-      <div className="flex items-center gap-2 mb-3">
-         <span className={`w-1.5 h-1.5 rounded-full ${items.length > 0 ? (type === "cycle" ? "bg-amber-500" : "bg-red-500") : "bg-zinc-300"}`} />
-         <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">{title}</h4>
-      </div>
-      <div className="space-y-2">
-        {items.length === 0 ? (
-          <p className="text-[11px] text-zinc-400 italic">None detected</p>
-        ) : (
-          items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2 p-2 bg-zinc-50 rounded-lg group hover:bg-zinc-100 transition-colors">
-               {type === "cycle" ? <RefreshCcw className="w-3 h-3 text-zinc-400" /> : <AlertCircle className="w-3 h-3 text-zinc-400" />}
-               <span className="text-xs font-mono text-zinc-700">{item}</span>
-            </div>
-          ))
-        )}
+    <div className="p-5 bg-white border border-neutral-200/80 rounded-2xl shadow-sm">
+      <h4 className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest mb-3">{title}</h4>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item, i) => (
+          <span key={i} className="px-2 py-1 text-[11px] font-mono text-neutral-600 bg-neutral-100/80 rounded shadow-[inset_0_1px_0_rgba(255,255,255,1)]">
+             {item}
+          </span>
+        ))}
       </div>
     </div>
   );

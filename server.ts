@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
@@ -6,174 +7,209 @@ import { createServer as createViteServer } from "vite";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-interface NodeEdge {
-  from: string;
-  to: string;
-}
-
-interface TreeResult {
+interface Hierarchy {
   root: string;
-  nodes: string[];
-  depth: number;
-  structure: Record<string, string[]>;
+  tree: Record<string, any>;
+  depth?: number;
+  has_cycle?: true;
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
+  app.use(cors());
   app.use(express.json());
 
-  // BFHL API Implementation
   app.post("/bfhl", (req, res) => {
-    const { data } = req.body;
-
-    if (!Array.isArray(data)) {
-      return res.status(400).json({ is_success: false, message: "Invalid input format" });
-    }
-
-    const validEdges: NodeEdge[] = [];
-    const invalidEntries: string[] = [];
-    const duplicates: string[] = [];
+    const data = Array.isArray(req.body.data) ? req.body.data : [];
+    
+    const invalid_entries: string[] = [];
+    const duplicate_edges: string[] = [];
+    const hierarchies: Hierarchy[] = [];
+    
+    const childToParent = new Map<string, string>();
     const seenEdges = new Set<string>();
-
-    // Step 1: Parsing and Basic Validation
-    data.forEach((entry: string) => {
-      if (typeof entry !== "string") {
-        invalidEntries.push(String(entry));
-        return;
+    const reportedDuplicates = new Set<string>();
+    
+    const validEdges: { from: string, to: string }[] = [];
+    const allValidNodes = new Set<string>();
+    
+    // 1. Validation & Edge Processing
+    for (const item of data) {
+      if (typeof item !== "string") {
+        invalid_entries.push(String(item));
+        continue;
       }
-
-      const match = entry.match(/^([A-Z]+)->([A-Z]+)$/);
+      
+      const trimmed = item.trim();
+      if (!trimmed) {
+        invalid_entries.push(item);
+        continue;
+      }
+      
+      const match = trimmed.match(/^([A-Z])->([A-Z])$/);
       if (!match) {
-        invalidEntries.push(entry);
-        return;
+        invalid_entries.push(item);
+        continue;
       }
-
+      
       const [, from, to] = match;
-      const edgeKey = `${from}->${to}`;
-
-      if (seenEdges.has(edgeKey)) {
-        duplicates.push(entry);
-      } else {
-        seenEdges.add(edgeKey);
-        validEdges.push({ from, to });
+      if (from === to) {
+        invalid_entries.push(item);
+        continue;
       }
-    });
-
-    // Step 2: Graph Analysis
-    const adj: Record<string, string[]> = {};
-    const nodes = new Set<string>();
-    const inDegree: Record<string, number> = {};
-
-    validEdges.forEach((edge) => {
-      nodes.add(edge.from);
-      nodes.add(edge.to);
-      if (!adj[edge.from]) adj[edge.from] = [];
-      adj[edge.from].push(edge.to);
-      inDegree[edge.to] = (inDegree[edge.to] || 0) + 1;
-      if (inDegree[edge.from] === undefined) inDegree[edge.from] = 0;
-    });
-
-    // Detect Components and Cycles
+      
+      const edgeKey = `${from}->${to}`;
+      if (seenEdges.has(edgeKey)) {
+        if (!reportedDuplicates.has(edgeKey)) {
+          duplicate_edges.push(item);
+          reportedDuplicates.add(edgeKey);
+        }
+        continue;
+      }
+      seenEdges.add(edgeKey);
+      
+      if (childToParent.has(to)) {
+        continue;
+      }
+      
+      childToParent.set(to, from);
+      validEdges.push({ from, to });
+      allValidNodes.add(from);
+      allValidNodes.add(to);
+    }
+    
+    // 2. Adjacency List & Roots
+    const adj = new Map<string, string[]>();
+    for (const node of allValidNodes) adj.set(node, []);
+    for (const { from, to } of validEdges) {
+      adj.get(from)!.push(to);
+    }
+    
+    const roots: string[] = [];
+    for (const node of allValidNodes) {
+      if (!childToParent.has(node)) {
+        roots.push(node);
+      }
+    }
+    roots.sort();
+    
+    // 3. Tree Exploration
     const visited = new Set<string>();
-    const components: string[][] = [];
-    const allNodes = Array.from(nodes);
-
-    allNodes.forEach((node) => {
-      if (!visited.has(node)) {
-        const component: string[] = [];
-        const stack = [node];
-        while (stack.length > 0) {
-          const curr = stack.pop()!;
-          if (!visited.has(curr)) {
-            visited.add(curr);
-            component.push(curr);
-            // Bidirectional traversal to find components
-            // This is simplified; for true components we'd need an undirected version
+    
+    function explore(root: string): { tree: any, hasCycle: boolean, depth: number } {
+      const tree: any = {};
+      let cycle = false;
+      let maxPathDepth = 0;
+      
+      function dfs(node: string, currentPath: Set<string>, currentTree: any, currDepth: number) {
+        visited.add(node);
+        maxPathDepth = Math.max(maxPathDepth, currDepth);
+        currentTree[node] = {};
+        
+        const children = adj.get(node) || [];
+        children.sort();
+        
+        for (const child of children) {
+          if (currentPath.has(child)) {
+            cycle = true;
+          } else {
+            currentPath.add(child);
+            dfs(child, currentPath, currentTree[node], currDepth + 1);
+            currentPath.delete(child);
           }
         }
-        // Simplified approach: use roots to identify hierarchies
       }
-    });
-
-    // Identifying Hierarchies
-    const roots = allNodes.filter((node) => (inDegree[node] || 0) === 0);
-    const trees: TreeResult[] = [];
-    const cycles: { nodes: string[] }[] = [];
-    const processedNodes = new Set<string>();
-
-    roots.forEach((root) => {
-      const componentNodes = new Set<string>();
-      const componentAdj: Record<string, string[]> = {};
-      let hasCycle = false;
-      let maxDepth = 0;
-
-      const dfs = (node: string, depth: number, path: Set<string>) => {
-        componentNodes.add(node);
-        processedNodes.add(node);
-        maxDepth = Math.max(maxDepth, depth);
-
-        const neighbors = adj[node] || [];
-        neighbors.forEach((neighbor) => {
-          if (!componentAdj[node]) componentAdj[node] = [];
-          componentAdj[node].push(neighbor);
-
-          if (path.has(neighbor)) {
-            hasCycle = true;
-          } else {
-            const nextPath = new Set(path);
-            nextPath.add(neighbor);
-            dfs(neighbor, depth + 1, nextPath);
-          }
-        });
-      };
-
-      dfs(root, 1, new Set([root]));
-
-      if (!hasCycle) {
-        trees.push({
-          root,
-          nodes: Array.from(componentNodes),
-          depth: maxDepth,
-          structure: componentAdj,
-        });
+      
+      dfs(root, new Set([root]), tree, 1);
+      return { tree, hasCycle: cycle, depth: maxPathDepth };
+    }
+    
+    for (const root of roots) {
+      const res = explore(root);
+      if (res.hasCycle) {
+        hierarchies.push({ root, tree: {}, has_cycle: true });
       } else {
-        cycles.push({ nodes: Array.from(componentNodes) });
+        hierarchies.push({ root, tree: res.tree, depth: res.depth });
       }
-    });
-
-    // Find cycles in components without roots
-    allNodes.forEach(node => {
-      if (!processedNodes.has(node)) {
-        const componentNodes = new Set<string>();
-        const dfs = (curr: string) => {
-          componentNodes.add(curr);
-          processedNodes.add(curr);
-          (adj[curr] || []).forEach(next => {
-             if (!processedNodes.has(next)) dfs(next);
-          });
-        };
-        dfs(node);
-        cycles.push({ nodes: Array.from(componentNodes) });
+    }
+    
+    // 4. Pure Cycles
+    const unvisitedNodes = Array.from(allValidNodes).filter(n => !visited.has(n));
+    if (unvisitedNodes.length > 0) {
+      const undirectedAdj = new Map<string, string[]>();
+      for (const n of allValidNodes) undirectedAdj.set(n, []);
+      for (const { from, to } of validEdges) {
+        undirectedAdj.get(from)!.push(to);
+        undirectedAdj.get(to)!.push(from);
       }
-    });
-
+      
+      const compVisited = new Set<string>();
+      for (const node of unvisitedNodes) {
+        if (!compVisited.has(node)) {
+          const compNodes: string[] = [];
+          const q = [node];
+          compVisited.add(node);
+          
+          while (q.length > 0) {
+            const curr = q.shift()!;
+            compNodes.push(curr);
+            visited.add(curr);
+            
+            for (const neighbor of undirectedAdj.get(curr) || []) {
+              if (!compVisited.has(neighbor)) {
+                compVisited.add(neighbor);
+                q.push(neighbor);
+              }
+            }
+          }
+          
+          compNodes.sort();
+          hierarchies.push({ root: compNodes[0], tree: {}, has_cycle: true });
+        }
+      }
+    }
+    
+    // 5. Summary
+    let total_trees = 0;
+    let total_cycles = 0;
+    let largest_tree_root = "";
+    let maxDepth = -1;
+    
+    for (const h of hierarchies) {
+      if (h.has_cycle) {
+        total_cycles++;
+      } else {
+        total_trees++;
+        const currentDepth = h.depth || 0;
+        if (currentDepth > maxDepth) {
+          maxDepth = currentDepth;
+          largest_tree_root = h.root;
+        } else if (currentDepth === maxDepth) {
+          if (!largest_tree_root || h.root < largest_tree_root) {
+            largest_tree_root = h.root;
+          }
+        }
+      }
+    }
+    
     res.json({
-      is_success: true,
-      trees,
-      cycles,
-      invalid_entries: invalidEntries,
-      duplicates,
+      user_id: "arunkarthik_15082002",
+      email_id: "ak4789@srmist.edu.in",
+      college_roll_number: "RA2111003011181",
+      hierarchies,
+      invalid_entries,
+      duplicate_edges,
       summary: {
-        total_trees: trees.length,
-        total_cycles: cycles.length,
-        largest_tree_root: trees.reduce((prev, curr) => (curr.nodes.length > (prev?.nodes.length || 0) ? curr : prev), null as any)?.root || ""
+        total_trees,
+        total_cycles,
+        largest_tree_root: largest_tree_root || ""
       }
     });
   });
 
-  // Vite middleware
+  // Vite Integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -188,7 +224,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
