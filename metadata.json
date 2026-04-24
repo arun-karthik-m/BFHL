@@ -1,8 +1,6 @@
 {
-  "name": "BFHL Hierarchy Visualizer",
-  "description": "A premium, full-stack visualizer for node hierarchies, trees, and cycles.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "full_stack"
-  ]
+  "name": "BFHL Analytics API",
+  "description": "Enterprise-grade API for relationship graph analysis and hierarchy visualization.",
+  "version": "1.0.0",
+  "author": "Arun Karthik M"
 }
